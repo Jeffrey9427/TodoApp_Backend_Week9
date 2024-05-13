@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
+import uuid
+from datetime import datetime, timedelta
 
 # Users CRUD operations
 
@@ -74,3 +76,23 @@ def get_todos_by_user_id(db: Session, user_id: int, skip: int = 0, limit: int = 
 
 def get_todo_by_user_id_and_todo_id(db: Session, user_id: int, todo_id: int):
     return db.query(models.Todo).filter(models.Todo.user_id == user_id, models.Todo.id == todo_id).first()
+
+# Sessions CRUD operations
+
+def create_session(db: Session, user_id: int) -> schemas.Session:
+    expiry_time = datetime.utcnow() + timedelta(hours=1)  # Example expiry time, adjust as needed
+    session_id = str(uuid.uuid4())  # Generate a random UUID for session ID
+    db_session = models.Session(id=session_id, user_id=user_id, expiry_time=expiry_time)
+    db.add(db_session)
+    db.commit()
+    # Convert expiry_time to string before returning
+    expiry_time_str = expiry_time.isoformat()
+    return schemas.Session(id=session_id, user_id=user_id, expiry_time=expiry_time_str)
+
+def delete_session(db: Session, session_id: str):
+    db_session = db.query(models.Session).filter(models.Session.id == session_id).first()
+    if db_session:
+        db.delete(db_session)
+        db.commit()
+        return True
+    return False
