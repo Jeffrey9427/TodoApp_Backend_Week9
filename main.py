@@ -46,7 +46,10 @@ def login_user(user: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user is None or db_user.hashed_password != user.password:
         return JSONResponse(content={"success": False}, status_code=401)
-    return JSONResponse(content={"success": True, "user_id": db_user.id}, status_code=200)
+
+    session = crud.create_session(db=db, user_id=db_user.id)
+    expiry_time_str = session.expiry_time.isoformat()  # Convert expiry_time to string
+    return JSONResponse(content={"success": True, "user_id": db_user.id, "session_id": session.id, "expiry_time": expiry_time_str}, status_code=200)
 
 @app.get("/users/{user_id}", response_model=schemas.User)
 def read_user(user_id: int, db: Session = Depends(get_db)):
@@ -107,3 +110,14 @@ def read_todo_by_user_id_and_todo_id(user_id: int, todo_id: int, db: Session = D
     if db_todo is None:
         raise HTTPException(status_code=404, detail="Todo not found")
     return db_todo
+
+@app.post("/sessions/", response_model=schemas.Session)
+def create_session(user_id: int, db: Session = Depends(get_db)):
+    return crud.create_session(db=db, user_id=user_id)
+
+@app.delete("/sessions/{session_id}")
+def delete_session(session_id: str, db: Session = Depends(get_db)):
+    success = crud.delete_session(db=db, session_id=session_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"message": "Session deleted successfully."}
